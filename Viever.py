@@ -43,6 +43,7 @@ class mywindow(QtWidgets.QMainWindow):
         tabl_sp_mk.setSelectionMode(1)
         F.ust_cvet_videl_tab(tabl_sp_mk)
         tabl_sp_mk.clicked.connect(self.vibor_mk)
+        tabl_sp_mk.doubleClicked.connect(self.dblclk_sp_mk)
 
         tabl_mk = self.ui.table_mk_view
         tabl_mk.doubleClicked.connect(self.dblclk_mk)
@@ -59,11 +60,14 @@ class mywindow(QtWidgets.QMainWindow):
         lineEdit_prim = self.ui.lineEdit_prim
         lineEdit_prim.textEdited.connect(self.poisk_prim)
 
+    def dblclk_sp_mk(self):
+        self.spisok_mk()
+
     def dblclk_mk(self):
         tabl_mk = self.ui.table_mk_view
         r = tabl_mk.currentRow()
         k = tabl_mk.currentColumn()
-        if k >8 and (k-9)%4==0:
+        if k >10 and (k-11)%4==0:
             self.vigruz_tehkart(r,k)
 
     def vigruz_tehkart(self,r,k):
@@ -131,9 +135,14 @@ class mywindow(QtWidgets.QMainWindow):
             showDialog(self, 'Не обнаржун файл')
             return
         sp = F.otkr_f(F.scfg('mk_data') + os.sep + nom + '.txt',False,'|')
+        if sp == []:
+            showDialog(self, 'Некорректное содержимое МК')
+            return
         sp = self.oformlenie_sp_pod_mk(sp)
         F.zapoln_wtabl(self, sp, tabl_mk, 0, 0, '', '', 200, True, '', 65)
         self.oform_mk(sp)
+
+
 
     def uroven(self,strok):
         n = 0
@@ -155,14 +164,14 @@ class mywindow(QtWidgets.QMainWindow):
             uroven = self.uroven(sp[i][0])
             for j in range(0, len(sp[i])):
                 F.dob_color_wtab(tabl_mk,i-1,j,0,0,shag*maxc-shag*uroven)
-
         for i in range(1, len(sp)):
-            for j in range(9, len(sp[i]),4):
+            for j in range(11, len(sp[i]),4):
                 F.dob_color_wtab(tabl_mk, i - 1, j, 10, 10, 10)
+        tabl_mk.setColumnHidden(6,True)
 
     def oformlenie_sp_pod_mk(self,s):
         for j in s:
-            for i in range(9, len(s[0])):
+            for i in range(10, len(s[0])):
                 if '$' in j[i]:
                     vrem, oper1, oper2 = [x for x in j[i].split("$")]
                     j[i] = vrem + '\n' + oper1 + '\n' + oper2
