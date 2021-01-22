@@ -69,6 +69,32 @@ class mywindow(QtWidgets.QMainWindow):
         k = tabl_mk.currentColumn()
         if k >10 and (k-11)%4==0:
             self.vigruz_tehkart(r,k)
+        if k >10 and (k-12)%4==0:
+            self.vigruz_tara(r,k)
+
+    def vigruz_tara(self, r, k):
+        tabl_mk = self.ui.table_mk_view
+        if tabl_mk.item(r, k).text() == "":
+            return
+        tabl_sp_mk = self.ui.table_mk
+
+        id = tabl_mk.item(r, 6).text().strip()
+
+        nom_mk = tabl_sp_mk.item(tabl_sp_mk.currentRow(), 0).text()
+        bd_arh_tar = F.otkr_f(F.tcfg('arh_tar'), separ='|')
+        s = ''
+        for i in bd_arh_tar:
+            if i[3] == nom_mk:
+                sost = i[6]
+                nom = i[0]
+                marsh = i[9]
+                nazv = i[5]
+                det_tmp = F.otkr_f(F.scfg('bd_tara') + os.sep + nom + '.txt', separ='|')
+                for i in range(0, len(det_tmp)):
+                    if det_tmp[i][3].strip() == id:
+                        s += sost + ' ' + nom + ' ' + nazv + '\n' + marsh.replace('$',' ') + '\n' + '\n'
+        showDialog(self, s)
+        return
 
     def vigruz_tehkart(self,r,k):
         tabl_mk = self.ui.table_mk_view
@@ -168,6 +194,16 @@ class mywindow(QtWidgets.QMainWindow):
             for j in range(11, len(sp[i]),4):
                 F.dob_color_wtab(tabl_mk, i - 1, j, 10, 10, 10)
         tabl_mk.setColumnHidden(6,True)
+        #komplekt
+        for i in range(1, len(sp)):
+            for j in range(12, len(sp[i]), 4):
+                if tabl_mk.item(i - 1,j).text() != '':
+                    if '(полный' in tabl_mk.item(i - 1,j).text():
+                        F.dob_color_wtab(tabl_mk, i - 1, j, 0, 127, 0)
+                    else:
+                        F.dob_color_wtab(tabl_mk, i - 1, j, 37, 17, 0)
+
+
 
     def oformlenie_sp_pod_mk(self,s):
         for j in s:
