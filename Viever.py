@@ -37,6 +37,9 @@ class mywindow(QtWidgets.QMainWindow):
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
         self.setWindowTitle("Просмотр маршрутных карт")
 
+
+        self.show()
+
         tabl_sp_mk = self.ui.table_mk
         self.spisok_mk()
         tabl_sp_mk.setSelectionBehavior(1)
@@ -62,6 +65,183 @@ class mywindow(QtWidgets.QMainWindow):
 
         lineEdit_prim = self.ui.lineEdit_prim
         lineEdit_prim.textEdited.connect(self.poisk_prim)
+
+        imgg = self.ui.label_img
+        imgg.setScaledContents(True)
+        self.fon = QtGui.QPixmap(os.path.join("icons", "001.jpg"))
+        self.radius = 30
+        self.width = 5
+        self.wind_width = 1280
+        self.wind_height = 720
+
+        self.wind_k_width = self.fon.width()/self.wind_width
+        self.wind_k_height = self.fon.height() / self.wind_height
+        self.wind_k_heighth = 0
+        self.ris_fona(self.fon)
+        combo = self.ui.comboBox
+        combo.activated.connect(self.vibor_dse_ineract)
+
+        combo_tara = self.ui.comboBox_tari_rc
+        combo_tara.activated.connect(self.vibor_dse_interact_tara_rc)
+
+
+
+
+
+    def sortBy1el(inputStr):
+        return inputStr[0]
+
+    def sp_coord_po_rc(self,rc):
+        sp_coord = F.otkr_f(F.tcfg('coord_rc'), separ='|')
+        if sp_coord == ['']:
+            F.msgbox('Не найден файл с координатами')
+            return ['']
+        for i in range(len(sp_coord)):
+            if sp_coord[i][0] == rc:
+                return [sp_coord[i][3],sp_coord[i][4]]
+        return ['']
+
+    def vibor_dse_ineract(self):
+        #определить ид, номер маршуртки
+        combo = self.ui.comboBox
+        tabl_sp_mk = self.ui.table_mk
+        arr = combo.currentText().split('|')
+        id = arr[-1]
+        if tabl_sp_mk.currentRow() == -1:
+            F.msgbox('Не выбрана МК')
+            return
+        nom_mk = tabl_sp_mk.item(tabl_sp_mk.currentRow(), 0).text()
+        #передать занчение для поиска цепочки движения
+            #открыть arh_tar.tx, в список все, которые имеют номер наряда
+        bd_arh_tar = F.otkr_f(F.tcfg('arh_tar'), separ='|')
+        sp_tar_po_mk = []
+        sp_tar_po_mk_i_det = []
+        itog_sp = []
+        for i in range(len(bd_arh_tar)):
+            if bd_arh_tar[i][3] == nom_mk:
+                sp_tar_po_mk.append(bd_arh_tar[i][0])
+
+            ##по списку поиск в тарах, ид детали
+        for i in range(len(sp_tar_po_mk)):
+            sp_det = F.otkr_f(F.scfg('arh_tar') + os.sep + sp_tar_po_mk[i] + '.txt', separ='|')
+            for j in range(len(sp_det)):
+                if sp_det[j][3] == id:
+                    sp_tar_po_mk_i_det.append([sp_tar_po_mk[i],sp_det[j][0]])
+
+
+            #выгрузить из первго списка арх, путь этих тар и даты
+        for i in range(len(bd_arh_tar)):
+            for k in range(len(sp_tar_po_mk_i_det)):
+                if bd_arh_tar[i][0] == sp_tar_po_mk_i_det[k][0]:
+                    arr= bd_arh_tar[i][9].split('-->')
+                    for j in range(len(arr)):
+                        arr2 = arr[j].split('$')
+                        sp_coord = self.sp_coord_po_rc(arr2[2])
+                        if sp_coord == ['']:
+                            F.msgbox('Не найден файл с координамтами')
+                            return
+                        if len(sp_coord) < 2:
+                            F.msgbox('Не найдена координата для ' + bd_arh_tar[2])
+                            return
+                        # превратьить строку с --> и $ в список рабочих центров.
+                        cord_x = sp_coord[0]
+                        cord_y = sp_coord[1]
+                        itog_sp.append([arr2[1],bd_arh_tar[i][0],sp_tar_po_mk_i_det[k][1],arr2[2],int(cord_x),int(cord_y)])
+
+        if len(itog_sp) == 0:
+            imgg = self.ui.label_img
+            pixmap = self.fon.scaled(1280, 720).copy()
+            imgg.setPixmap(pixmap)
+            F.msgbox('Нет перемещений')
+            return
+
+            #отсортировать по времени
+        itog_sp.sort()
+
+        self.ris_fona(self.fon,itog_sp)
+        sp1 = []
+        for i in range(len(itog_sp)):
+            if itog_sp[i][1] not in sp1:
+                sp1.append(itog_sp[i][1])
+        self.ui.comboBox_tari_rc.clear()
+        self.ui.comboBox_tari_rc.addItem('')
+        for i in sp1:
+            text_tara = i
+            for j in itog_sp:
+                if j[1] == i:
+                    text_tara = i + '|' + j[3] + ' шт.' + '|' + j[0]
+            self.ui.comboBox_tari_rc.addItem(text_tara)
+
+        self.itog_sp_per_det = itog_sp
+
+
+    def vibor_dse_interact_tara_rc(self):
+        combo_tara = self.ui.comboBox_tari_rc
+        arr_tara = combo_tara.currentText().split('|')
+        tara = arr_tara[0]
+        itog_sp = self.itog_sp_per_det.copy()
+        itog_sp_tmp = []
+        for i in range(len(itog_sp)):
+            if itog_sp[i][1] == tara:
+                itog_sp_tmp.append(itog_sp[i])
+
+        self.ris_fona(self.fon, itog_sp_tmp)
+
+
+
+
+    def ris_krug(self,qp,x,y,r):
+        qp.setPen(QtGui.QColor(5, 5, 5))
+        qp.setBrush(QtGui.QColor(200, 30, 40))
+        qp.drawEllipse(int(x-r/2), int(y-r/2), r, r)
+
+    def ris_line(self,qp,x,y,x2,y2):
+        if x2 == '' or y2 == '':
+            return
+        pen = QtGui.QPen(QtGui.QColor(200, 30, 40), 5, QtCore.Qt.DotLine)
+        pen.setStyle(QtCore.Qt.DashLine)
+        qp.setPen(pen)
+
+        qp.setBrush(QtGui.QColor(200, 30, 40))
+        qp.drawLine(int(x),int(y),int(x2),int(y2))
+
+    def ris_cifra(self,qp,x,y,text):
+        qp.setPen(QtGui.QColor(255, 225, 55))
+        razmer = self.radius/2
+        qp.setFont(QtGui.QFont('Decorative', razmer,5,True))
+        qp.drawText(int(x-razmer/2),int(y+razmer/2),str(text))
+
+
+    def ris_uchastok(self,qp,x1,y1,text,n,sp,x2='',y2=''):
+
+        self.ris_krug(qp, x1, y1, self.radius)
+        self.ris_line(qp, x1, y1, x2, y2)
+        self.ris_cifra(qp,x1, y1, text)
+
+    def ris_fona(self,fon,sp = ('')):
+        imgg = self.ui.label_img
+
+        pixmap = fon.scaled(1280,720).copy()
+        qpp = QtGui.QPainter(pixmap)
+        nom = 1
+        for i in range(len(sp)):
+            x = sp[i][4] /self.wind_k_width
+            y = sp[i][5] /self.wind_k_height
+            x2 = ''
+            y2 = ''
+            if i < len(sp)-1:
+                x2 = sp[i+1][4] /self.wind_k_width
+                y2 = sp[i + 1][5]/self.wind_k_height
+            self.ris_uchastok(qpp,x,y,nom,i,sp,x2,y2)
+            nom+=1
+        qpp.end()
+        imgg.setPixmap(pixmap)
+
+    #def paintEvent(self, e):
+    #    qp = QtGui.QPainter()
+    #    qp.begin(self)
+    #    self.ris_krug(qp)
+    #    qp.end()
 
     def dblclk_sp_mk(self):
         self.spisok_mk()
@@ -181,6 +361,7 @@ class mywindow(QtWidgets.QMainWindow):
     def vibor_mk(self):
         tabl_mk = self.ui.table_mk_view
         tabl_sp_mk = self.ui.table_mk
+        combo = self.ui.comboBox
         nom = tabl_sp_mk.item(tabl_sp_mk.currentRow(),0).text()
         if F.nalich_file(F.scfg('mk_data') + os.sep + nom + '.txt') == False:
             showDialog(self, 'Не обнаржен файл')
@@ -191,7 +372,11 @@ class mywindow(QtWidgets.QMainWindow):
             return
         sp = self.oformlenie_sp_pod_mk(sp)
         F.zapoln_wtabl(self, sp, tabl_mk, 0, 0, '', '', 200, True, '', 65)
-        self.oform_mk(sp)
+        self.oform_mk(sp,nom)
+        combo.clear()
+        for i in range(len(sp)):
+            combo.addItem(sp[i][0] + '  ' + sp[i][1] + '|' + sp[i][6])
+        combo.setMaxVisibleItems(combo.maxCount())
 
 
 
@@ -204,66 +389,72 @@ class mywindow(QtWidgets.QMainWindow):
                 break
         return int(n/4)
 
-
-    def oform_mk(self,sp):
+    def oform_mk(self, sp, nom_mk):
         shag = 15
         tabl_mk = self.ui.table_mk_view
         tabl_sp_mk = self.ui.table_mk
 
         maxs = set()
-        for i in range(1,len(sp)):
+        for i in range(1, len(sp)):
             maxs.add(self.uroven(sp[i][0]))
         maxc = max(maxs)
-        for i in range(1,len(sp)):
+        for i in range(1, len(sp)):
             uroven = self.uroven(sp[i][0])
             for j in range(0, len(sp[i])):
-                F.dob_color_wtab(tabl_mk,i-1,j,0,0,shag*maxc-shag*uroven)
+                F.dob_color_wtab(tabl_mk, i - 1, j, 0, 0, shag * maxc - shag * uroven)
         for i in range(1, len(sp)):
-            for j in range(11, len(sp[i]),4):
+            for j in range(11, len(sp[i]), 4):
                 F.dob_color_wtab(tabl_mk, i - 1, j, 10, 10, 10)
-        tabl_mk.setColumnHidden(6,True)
-        #komplekt
+                if sp[i][j] == '':
+                    for k in range(1,4):
+                        F.dob_color_wtab(tabl_mk, i - 1, j+k, 10, 10, 10)
+        tabl_mk.setColumnHidden(6, True)
+        # komplekt
         for i in range(1, len(sp)):
             for j in range(12, len(sp[i]), 4):
-                if tabl_mk.item(i - 1,j).text() != '':
-                    if '(полный' in tabl_mk.item(i - 1,j).text():
+                if tabl_mk.item(i - 1, j).text() != '':
+                    if '(полный' in tabl_mk.item(i - 1, j).text():
                         F.dob_color_wtab(tabl_mk, i - 1, j, 0, 127, 0)
                     else:
                         F.dob_color_wtab(tabl_mk, i - 1, j, 37, 17, 0)
-                if tabl_mk.item(i - 1, j+1).text() != '':
-                    arr = tabl_mk.item(i - 1, j+1).text().strip().split('\n')
-                    flag = 0
+                if tabl_mk.item(i - 1, j + 1).text() != '':
+                    arr = tabl_mk.item(i - 1, j + 1).text().strip().split('\n')
                     set_sost = set()
                     for k in range(len(arr)):
                         arr2 = arr[k].split(' ')
                         set_sost.add(arr2[1])
                     if len(set_sost) == 1 and 'Завершен' in set_sost:
-                        flag = 2
+                        id_dse = sp[i][6]
+                        arr_op = tabl_mk.item(i - 1, j - 1).text()
+                        arr_op2 = arr_op.split('Операции:\n')
+                        obr = arr_op2[-1].split(";")
+                        ostatok = 0
+                        for op in obr:
+                            nom_op = op
+                            ostatok += self.summ_dost_det_po_nar(nom_mk, id_dse, nom_op)  # зеленый
+                        if ostatok <= 0:
+                            F.dob_color_wtab(tabl_mk, i - 1, j + 1, 0, 127, 0)  # зеленый
+                        break
                     elif len(set_sost) == 1 and 'Выдан' in set_sost:
-                        flag = 0
+                        break
                     else:
-                        flag = 1
-
-                    if flag == 1:# оранж
-                        F.dob_color_wtab(tabl_mk, i - 1, j+1, 37, 17, 0)
-                    if flag == 0:
-                        if tabl_mk.currentRow() == -1:
-                            showDialog(self, 'Не выбрана дсе')
-                            return
-                        if tabl_sp_mk.currentRow() == -1:
-                            showDialog(self, 'Не выбрана мк')
-                            return
-                    nom_mk = tabl_sp_mk.item(tabl_sp_mk.currentRow(), 0).text()
-                    id_dse = tabl_mk.item(i - 1, 6).text()
-                    arr_op = tabl_mk.item(i - 1, j - 1).text()
-                    arr_op2 = arr_op.split('Операции:\n')
-                    obr = arr_op2[-1].split(";")
-                    ostatok = 0
-                    for op in obr:
-                        nom_op = op
-                        ostatok += self.summ_dost_det_po_nar(nom_mk, id_dse, nom_op)  # зеленый
-                    if ostatok <= 0:
-                        F.dob_color_wtab(tabl_mk, i - 1, j + 1, 0, 127, 0)  # зеленый
+                        F.dob_color_wtab(tabl_mk, i - 1, j + 1, 37, 17, 0)  # оранж
+                if tabl_mk.item(i - 1, j + 2).text() != '':
+                    arr = tabl_mk.item(i - 1, j + 2).text().strip().split('\n')
+                    set_sost = set()
+                    for k in range(len(arr)):
+                        arr2 = arr[k].split(' ')
+                        if len(arr2) == 1:
+                            set_sost.add('')
+                        else:
+                            set_sost.add(arr2[1])
+                    if len(set_sost) == 1 and 'Исправлен' in set_sost:
+                        F.dob_color_wtab(tabl_mk, i - 1, j + 2, 0, 127, 0)  # зеленый
+                        break
+                    if 'Неисп-мый' in set_sost:
+                        F.dob_color_wtab(tabl_mk, i - 1, j + 2, 200, 10, 10)  # красный
+                        break
+                    F.dob_color_wtab(tabl_mk, i - 1, j + 2, 37, 17, 0)  # оранж
 
     def max_det_skompl(self,nom_op,id_dse):
         tabl_mk = self.ui.table_mk_view
@@ -324,6 +515,9 @@ class mywindow(QtWidgets.QMainWindow):
             for i in range(13, len(s[0]),4):
                 if '$' in j[i]:
                     j[i] = j[i].replace('$','\n')
+            for i in range(14, len(s[0]), 4):
+                if '$' in j[i]:
+                    j[i] = j[i].replace('$', '\n')
         return s
 
     def spisok_mk(self):
