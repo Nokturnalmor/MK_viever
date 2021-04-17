@@ -23,7 +23,7 @@
        </font>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
@@ -31,7 +31,48 @@
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_2">
         <item>
+         <widget class="QTableWidget" name="table_mk">
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>170</height>
+           </size>
+          </property>
+         </widget>
+        </item>
+        <item>
          <layout class="QHBoxLayout" name="horizontalLayout">
+          <item>
+           <widget class="QPushButton" name="pushButton_obnov_mk">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>41</width>
+              <height>41</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>41</width>
+              <height>41</height>
+             </size>
+            </property>
+            <property name="font">
+             <font>
+              <family>Wingdings 3</family>
+              <pointsize>16</pointsize>
+             </font>
+            </property>
+            <property name="text">
+             <string>Q</string>
+            </property>
+           </widget>
+          </item>
           <item>
            <widget class="QLineEdit" name="lineEdit_np">
             <property name="minimumSize">
@@ -128,24 +169,26 @@
             </property>
            </widget>
           </item>
+          <item>
+           <widget class="QCheckBox" name="checkBox_min_rezhjim">
+            <property name="minimumSize">
+             <size>
+              <width>180</width>
+              <height>31</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>180</width>
+              <height>31</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Упрощенный режим</string>
+            </property>
+           </widget>
+          </item>
          </layout>
-        </item>
-        <item>
-         <widget class="QTableWidget" name="table_mk">
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>170</height>
-           </size>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="Line" name="line">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-         </widget>
         </item>
         <item>
          <widget class="QTableWidget" name="table_mk_view"/>
