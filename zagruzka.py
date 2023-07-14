@@ -26,9 +26,10 @@ def edit_rc_for_transport_oper(self,list_mk):
                         self.DICT_RC[oper['Опер_РЦ_код']]['Подмена_рц_для_плана'][:2] != oper['Опер_РЦ_код'][:2]:
                         list_mk[i]['Ресурсная'][j]['Операции'][k]['Опер_РЦ_код'] = self.DICT_RC[oper['Опер_РЦ_код']]['Подмена_рц_для_плана']
                         print(f"Замена {list_mk[i]['Ресурсная'][j]['Операции'][k]['Опер_РЦ_наименовние']} на"
-                            f" {self.DICT_RC[self.DICT_RC[oper['Опер_РЦ_код']]['Подмена_рц_для_плана']]['Имя']}")
+                            f" {self.DICT_RC[self.DICT_RC[oper['Опер_РЦ_код']]['Подмена_рц_для_плана']]['Имя']} т.к. для"
+                              f" {self.DICT_PROFESSIONS[oper['Опер_профессия_код']]['Подмена_рц_для_плана']} Подмена_рц_для_плана = 1")
                         list_mk[i]['Ресурсная'][j]['Операции'][k]['Опер_РЦ_наименовние'] = self.DICT_RC[self.DICT_RC[oper['Опер_РЦ_код']]['Подмена_рц_для_плана']]['Имя']
-
+    return list_mk
 
 def load_list_mk(self):
     query = """SELECT mk.Пномер, mk.Дата, mk.Статус, mk.Номенклатура, mk.Номер_заказа, mk.Номер_проекта, mk.Вид, 
@@ -38,7 +39,16 @@ def load_list_mk(self):
         FROM mk 
         INNER JOIN zagot ON mk.Пномер = zagot.Ном_МК 
         WHERE mk.Статус == "Открыта" ORDER BY mk.Приоритет ASC;"""
-    ans = CSQ.zapros(self.bd_naryad, query,'', True,rez_dict=True)
+
+    responce = CSQ.zapros(self.bd_naryad, query,'', True,rez_dict=True)
+    filtr_plan = CSQ.zapros(self.db_kplan, """SELECT ПУ FROM list_py_month""",shapka=False,one_column=True)
+    ans = []
+    for item in responce:
+        if item['Номер_заказа'] in filtr_plan:
+            ans.append(item)
+        else:
+            print(f'{item["Пномер"]} Не попала в план , {item["Номер_заказа"]} не в списке db_kplan.list_py_month')
+
     rez = []
     con,cur = CSQ.connect_bd(self.db_resxml)
     for i in range(len(ans)):

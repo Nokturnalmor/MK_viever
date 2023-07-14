@@ -2,6 +2,16 @@ import plotly.express as px
 import pandas as pd
 import project_cust_38.Cust_Functions as F
 
+import random
+
+def random_colour():
+    # Generating a random number in between 0 and 2^24
+    color = random.randrange(0, 2 ** 24)
+    # Converting that number from base-10
+    # (decimal) to base-16 (hexadecimal)
+    return  hex(color)
+
+
 def fiig(plan):
     df = pd.DataFrame(plan)
     fig = px.timeline(df, x_start="Начало", x_end="Завершение", y="РЦ", color='РЦ', facet_row_spacing=0.6,
@@ -70,6 +80,7 @@ def fig_podetalno_naproject_rc(plan, proj):
     return fig
 
 def fig_podetalno_narc_projects(plan,vert_filtr, vert_znach,color_separ,tochnost):
+
     nach_konec = ["Начало", 'Конец']
     if tochnost == 'Помаршрутно':
         nach_konec = ['Начало мк', 'Завершение мк']
@@ -87,7 +98,6 @@ def fig_podetalno_narc_projects(plan,vert_filtr, vert_znach,color_separ,tochnost
         df = pd.DataFrame(filtr)
     else:
         df = pd.DataFrame(plan)
-
     fig = px.timeline(df, x_start=nach_konec[0], x_end=nach_konec[1], y=vert_filtr, color=color_separ, facet_row_spacing=0.2,
                       facet_col_spacing=0.2, opacity=0.5, hover_data=plan[0].keys(),
                       title=f'Диаграмма {vert_filtr}-{color_separ} по {vert_znach}')
@@ -106,3 +116,4 @@ def fig_podetalno_narc_projects(plan,vert_filtr, vert_znach,color_separ,tochnost
     # fig.add_hline(y="  ")
     # fig.add_hline(y=" ")
     return fig
+

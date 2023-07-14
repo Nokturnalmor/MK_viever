@@ -188,3 +188,11 @@ QCheckBox::indicator:unchecked {
 QStatusBar {
 	color:rgb(240,240,240);
 }
+
+QMessageBox {
+    background-color: rgb(101,101,101);
+}
+
+QMessageBox QLabel {
+    color: #aaa;
+}

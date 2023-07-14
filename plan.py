@@ -1,3 +1,4 @@
+from __future__ import annotations
 import project_cust_38.Cust_Functions as F
 import datetime as DT
 import mosh as MSH
@@ -5,6 +6,11 @@ import zagruzka as ZG
 import project_cust_38.Cust_SQLite as CSQ
 import copy
 import project_cust_38.Cust_Excel as CEX
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from Viewer import mywindow
+
 #TODO указывать время работы каждой смены по участкам, каждый участок будет иметь несколько смен
 #TODO учитывать резерв загрузки начало и конец смены и между нарядами по каждому рц
 #TODO и учесть коэффицет времени -2 это в 2 раза медленнее работает при построении табеля
@@ -27,12 +33,12 @@ import project_cust_38.Cust_Excel as CEX
 наличие необходимых для выполнения операций товарно-материальных ценностей.
 """
 
-def load_plan(self,delete_cash_plan):
+def load_plan(self:mywindow,delete_cash_plan):
     #zagruzka = ZG.load_zagruzka(self)
     #==================
-    imafp = self.files_tmp +F.sep() + 'plan.pickle'
-    imafz = self.files_tmp +F.sep() + 'zagruzka.pickle'
-    imafm = self.files_tmp +F.sep() + 'mosh.pickle'
+    imafp = self.files_tmp +F.sep() + f'plan_{F.now("%Y_%m_%d")}.pickle'
+    imafz = self.files_tmp +F.sep() + f'zagruzka_{F.now("%Y_%m_%d")}.pickle'
+    imafm = self.files_tmp +F.sep() + f'mosh_{F.now("%Y_%m_%d")}.pickle'
     if delete_cash_plan:
         F.udal_file(imafp)
         F.udal_file(imafz)
@@ -45,14 +51,15 @@ def load_plan(self,delete_cash_plan):
         else:
             zagruzka = ZG.load_zagruzka(self)
             F.save_file_pickle(imafz, zagruzka)
-
+        if zagruzka == False or zagruzka == None:
+            return
         DOSTUPNIE_PLOSHADI = [1, 2, 3, 4, 5]
         if F.nalich_file(imafm):
             dict_moshn = F.load_file_pickle(imafm)
         else:
             dict_moshn = MSH.load_grafic_moshnostey(self, DOSTUPNIE_PLOSHADI)
             F.save_file_pickle(imafm, dict_moshn)
-
+        #========Расчет мощностей================
         if dict_moshn == None:
             return
         rez = [['Дата','Код_РЦ', 'Пномер', 'ФИО','Пулл','Время_начала','Время_конца','Раб_мин','напр1','напр2','напр3','напр4','summ']]
@@ -70,18 +77,69 @@ def load_plan(self,delete_cash_plan):
             CEX.zap_spis(rez, self.files_tmp , f'mosh_{now}.xlsx', '1', 1, 1)
         except:
             pass
+        # ========================
 
         rez_list = nalogenie(self, dict_moshn,zagruzka)
-        name = f'plan_{now}.xlsx'
-
-        self.save_excell_plan(rez_list,self.files_tmp,name)
+        # ========================
+        print('Сохранение пикл....')
         F.save_file_pickle(imafp,rez_list)
+        # ========================
+
+        # ========================
+        name = f'plan_{now}.xlsx'
+        print('Сохранение эксель....')
+        self.save_excell_plan(rez_list,self.files_tmp,name)
+
         if delete_cash_plan:
             try:
                 F.otkr_papky(self.files_tmp)
             except:
                 pass
+    self.rez_plan = rez_list
     return rez_list
+
+def save_excell_plan_materials(self:mywindow,rez_list,files_tmp,name,nach,konec):
+    dict_prof = dict()
+    dict_opers = dict()
+    dt_nach = F.strtodate(nach)
+    dt_konec = F.strtodate(konec)
+    for item in rez_list:
+        if item['Начало'] > dt_nach and item['Начало'] < dt_konec:
+            oper = item['Операция']
+            if oper not in dict_opers:
+                dict_opers[oper] = 0
+            prof = item['Должность']
+            if prof not in dict_prof:
+                dict_prof[prof] = 0
+            dict_opers[oper] += item['Время_шт(мин)']
+            dict_prof[prof] += item['Время_шт(мин)']
+
+    dict_maters = dict()
+    for oper in dict_opers:
+        kod_oper = self.DICT_OPER_FULL[oper]['kod']
+        query = f"""SELECT complex_filtr.kod, nomen.Наименование, nomen.ЕдиницаИзмерения,  complex_filtr.expenditure_per_smena FROM complex_filtr 
+                    INNER JOIN nomen ON nomen.Код == complex_filtr.kod 
+                                WHERE complex_filtr.kod_oper == '{kod_oper}'
+                        AND complex_filtr.filtr == 1"""
+        list_mats = CSQ.zapros(self.bd_mat,query,rez_dict=True)
+        for item in list_mats:
+            if item['kod'] not in dict_maters:
+                dict_maters[item['kod']] = {'№':0,'Код':item['kod'], 'Номенклатура':item['Наименование'],
+                'Характеристика':'', 'Ед. изм.':item['ЕдиницаИзмерения'],'Норма':0}
+            if F.is_numeric(item['expenditure_per_smena']):
+                ud_norm = F.valm(item['expenditure_per_smena'])
+            else:
+                ud_norm = 0
+                print(f'{item["kod"]} : {item["expenditure_per_smena"]}' )
+            dict_maters[item['kod']]['Норма'] += ud_norm/480 * dict_opers[oper]
+    list_mats_rez = F.dict_of_dicts_to_list_of_lists(dict_maters,'№')
+    for i in range(1,len(list_mats_rez)):
+        list_mats_rez[i][0] = i
+        list_mats_rez[i][5] = round(list_mats_rez[i][5],3)
+    CEX.zap_spis(list_mats_rez, files_tmp, name, '1', 1, 1)
+    F.otkr_papky(files_tmp)
+    list_prof = F.dict_to_list(dict_prof)
+    CEX.zap_spis(list_prof, files_tmp, 'prof_for_' + name, '1', 1, 1)
 
 def calc_limit_po_childrens(mk,iter_dse,iter_oper,limit_tmp):
     current_uroven = mk[iter_dse]['Уровень']
@@ -182,7 +240,7 @@ def nalogenie_operacii(self,list_plan,dict_moshn, t_operacionnoe, t_pz, rc, mk,s
 
                 if rc == '010301' or rc == '010302':
                     ves_test_sborka = round(time_rasch / 480 * 102, 3)
-                list_plan.append({deistvie['Начало']: {'#':deistvie['#'], 'ФИОД': deistvie['ФИОД'], 'Начало': deistvie['Начало'],
+                list_plan.append({'#':deistvie['#'], 'ФИОД': deistvie['ФИОД'], 'Начало': deistvie['Начало'],
                                                        'Конец': deistvie['Конец'], 'РЦ': rc, 'РМ': deistvie['РМ'],
                                                        'Должность': deistvie['Должность'], "Направление": mk['Направление'],
                                                        'Номер_заказа': mk['Номер_заказа'],
@@ -203,7 +261,7 @@ def nalogenie_operacii(self,list_plan,dict_moshn, t_operacionnoe, t_pz, rc, mk,s
                                                        'Время_для_оценки(мин)': time_rasch,
                                                        'Вес_для_оценки_сборка': ves_test_sborka,
                                                        'Вид работ': vid_rabot,
-                                                       'Профессия': oper['Опер_профессия_наименование']}})
+                                                       'Профессия': oper['Опер_профессия_наименование']})
                 time_rasch = 0
                 t_operacionnoe = 0
                 mk['Ресурсная'][iter_dse]['Операции'][iter_oper]['План_завершение'] = deistvie[
@@ -215,21 +273,19 @@ def start_end_mk(list_plan):
     dict_sroki_end_proecta = dict()
     dict_sroki_start_proecta = dict()
     for i in range(len(list_plan)):
-        day = list(list_plan[i].keys())[0]
-        if list_plan[i][day]['МК'] in dict_sroki_end_proecta:
-            if list_plan[i][day]['Конец'] > dict_sroki_end_proecta[list_plan[i][day]['МК']]:
-                dict_sroki_end_proecta[list_plan[i][day]['МК']] = list_plan[i][day]['Конец']
+        if list_plan[i]['МК'] in dict_sroki_end_proecta:
+            if list_plan[i]['Конец'] > dict_sroki_end_proecta[list_plan[i]['МК']]:
+                dict_sroki_end_proecta[list_plan[i]['МК']] = list_plan[i]['Конец']
         else:
-            dict_sroki_end_proecta[list_plan[i][day]['МК']] = list_plan[i][day]['Конец']
-        if list_plan[i][day]['МК'] in dict_sroki_start_proecta:
-            if list_plan[i][day]['Начало'] < dict_sroki_start_proecta[list_plan[i][day]['МК']]:
-                dict_sroki_start_proecta[list_plan[i][day]['МК']] = list_plan[i][day]['Начало']
+            dict_sroki_end_proecta[list_plan[i]['МК']] = list_plan[i]['Конец']
+        if list_plan[i]['МК'] in dict_sroki_start_proecta:
+            if list_plan[i]['Начало'] < dict_sroki_start_proecta[list_plan[i]['МК']]:
+                dict_sroki_start_proecta[list_plan[i]['МК']] = list_plan[i]['Начало']
         else:
-            dict_sroki_start_proecta[list_plan[i][day]['МК']] = list_plan[i][day]['Начало']
+            dict_sroki_start_proecta[list_plan[i]['МК']] = list_plan[i]['Начало']
     for i in range(len(list_plan)):
-        day = list(list_plan[i].keys())[0]
-        list_plan[i][day]['Начало мк'] = dict_sroki_start_proecta[list_plan[i][day]['МК']]
-        list_plan[i][day]['Завершение мк'] = dict_sroki_end_proecta[list_plan[i][day]['МК']]
+        list_plan[i]['Начало мк'] = dict_sroki_start_proecta[list_plan[i]['МК']]
+        list_plan[i]['Завершение мк'] = dict_sroki_end_proecta[list_plan[i]['МК']]
     return list_plan
 
 def find_user_in_day(moshn,ispolnotel,start_limit):

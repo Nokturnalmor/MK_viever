@@ -12,17 +12,37 @@ import project_cust_38.Cust_SQLite as CSQ
 import project_cust_38.Cust_Excel as CEX
 import project_cust_38.otcheti as OTCH
 from datetime import datetime as DT, timedelta
-
+from dataclasses import dataclass
 cfg = config.Config('Config\CFG.cfg')  # файл конфига, находится п папке конфиг
 
 F.test_path()
+
+@dataclass()
+class Data:
+    bd_naryad = F.bdcfg('Naryad')
+    bd_act = F.bdcfg('BDact')
+    bd_users = F.bdcfg('BD_users')
+    bd_mat = F.bdcfg('nomenklatura_erp')
+    bd_selector = F.bdcfg('BD_selector')
+    db_dse = F.bdcfg('BD_dse')
+    db_resxml = F.bdcfg('db_resxml')
+    db_kplan = F.bdcfg('DB_kplan')
+    files_tmp = F.scfg('files_tmp')
+    data_f = F.scfg('data_f')
+
+    DICT_ETAPI = dict()
+    zapros = f'''SELECT * FROM operacii'''
+    SPIS_OP = CSQ.zapros(bd_naryad, zapros, shapka=False, rez_dict=True)
+    for i in range(len(SPIS_OP)):
+        DICT_ETAPI[SPIS_OP[i]['name']] = SPIS_OP[i]['etap']
+
 
 class mywindow(QtWidgets.QMainWindow):
     def __init__(self):
         super(mywindow, self).__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-        self.versia = '1.5.3'
+        self.versia = '1.6.4'
         #=================add_ui=========================
         self.parent_for_grafic = self.ui.verticalLayout_8
         #===========================================connects
@@ -35,9 +55,10 @@ class mywindow(QtWidgets.QMainWindow):
         self.db_resxml = F.bdcfg('db_resxml')
         self.db_kplan = F.bdcfg('DB_kplan')
         self.files_tmp = F.scfg('files_tmp')
+        self.data_f = F.scfg('data_f')
         #==================BTN
         self.ui.btn_otchet.clicked.connect(lambda _, x=self: OTCH.otchet(x))
-        self.ui.btn_grafic_load.clicked.connect(lambda _, x=self: OTCH.create_gant(x))
+        self.ui.btn_grafic_load.clicked.connect(lambda _, x=self: OTCH.create_podotchet(x))
         self.ui.btn_save_txt.clicked.connect(self.save_txt)
         self.ui.btn_udown.clicked.connect(self.up_down)
         #==================lines
@@ -57,6 +78,7 @@ class mywindow(QtWidgets.QMainWindow):
 
         #===================COMBOBOX
         self.ui.cmb_vid_otcheta.activated.connect(lambda _, x=self: OTCH.vibor_vid_otcheta(x))
+        #self.ui.cmb_vid_otcheta.highlighted.connect(self.cmb_vid_otcheta_primech)
         self.ui.cmb_napr.activated.connect(self.vibor_napravl)
         self.ui.cmb_gant_vert.activated.connect(lambda _, x=self: OTCH.vibor_pole_gant(x))
         #===================RADIOBOX
@@ -65,6 +87,24 @@ class mywindow(QtWidgets.QMainWindow):
         self.ui.calendarWidget.clicked.connect(lambda _, x=self: OTCH.calendar_click(x))
         #++++++++++++++++++++++++++++++++++++++++++++
 
+        CMS.dict_emploee_rc(self)
+        CMS.dict_rc_po_oper(self, self.bd_naryad)
+        CMS.dict_rc(self, self.bd_users)
+        CMS.dict_professions(self, self.bd_users)
+        CMS.dict_napravl(self, self.db_kplan)
+        CMS.dict_opers(self, self.bd_naryad)
+        CMS.dict_etapi(self, self.bd_naryad)
+        self.DICT_EMPLOEE = CMS.dict_emploee(self.bd_users)
+        self.DICT_EMPLOEE_FULL = CMS.dict_emploee_full(self.bd_users)
+        self.DICT_MK = CSQ.zapros(self.bd_naryad,
+                                  f"""SELECT Пномер, Номер_заказа || "$" || Номер_проекта as NPPY FROM mk""",
+                                  rez_dict=True)
+        self.DICT_MK = F.raskrit_dict(self.DICT_MK, 'NPPY')
+        self.LIST_ZAMECH = self.load_zamech()
+        self.DICT_KOD_VP = F.raskrit_dict(CSQ.zapros(self.bd_naryad, f"""SELECT * FROM kod_zamech_vp""", rez_dict=True),
+                                          'Имя')
+        self.DICT_KOD_ZAM = F.raskrit_dict(CSQ.zapros(self.bd_naryad, f"""SELECT * FROM kod_zamech""", rez_dict=True),
+                                           'Имя')
         #==== GLOBALS
         self.plan_for_gant = ''
         #======ACTIONS
@@ -100,43 +140,38 @@ class mywindow(QtWidgets.QMainWindow):
                         'Шестигранник (10,01)',
                         ]
         #self.app_icons()
-        CMS.dict_etapi(self,self.bd_naryad)
-        CMS.dict_emploee_rc(self)
-        CMS.dict_rc_po_oper(self,self.bd_naryad)
-        CMS.dict_rc(self,self.bd_users)
-        CMS.dict_professions(self, self.bd_users)
-        CMS.dict_napravl(self, self.db_kplan)
-        CMS.dict_opers(self,self.bd_naryad)
-        self.DICT_EMPLOEE = CMS.dict_emploee(self.bd_users)
-        self.DICT_EMPLOEE_FULL = CMS.dict_emploee_full(self.bd_users)
-        self.DICT_MK = CSQ.zapros(self.bd_naryad,f"""SELECT Пномер, Номер_заказа || "$" || Номер_проекта as NPPY FROM mk""",rez_dict=True)
-        self.DICT_MK = F.raskrit_dict(self.DICT_MK,'NPPY')
-        self.LIST_ZAMECH = self.load_zamech()
-        self.DICT_KOD_VP =F.raskrit_dict(CSQ.zapros(self.bd_naryad,f"""SELECT * FROM kod_zamech_vp""",rez_dict=True),'Имя')
-        self.setWindowTitle('Просмотр')
-        self.ui.cmb_vid_otcheta.addItem('')
-        spis_vid_otcheta = ['Трудозатраты',
-                            'О выработке сотрудников за месяц',
-                            'Текущие работы',
-                            'Выработка цеха по виду',
-                            'Выработка цеха по направлению',
-                            'Журнал работ',
-                            'Внеплановые работы',
-                            'Выработка сотрудника',
-                            'Выработка сотрудников',
-                            'Понедельный график выработки и отгрузок',
-                            'Выработка цеха понарядно',
-                            'Статистика нормо-весовых харктеристик МК',
-                            'План-фактный анализ по месяцам',
-                            'План работ',
-                            'Селекторное',
-                            'Неосвоенный_вес_по_созданным_нарядам',
-                            'Норматив материалов по завершенным нарядам',
-                            'Журнал_техкарт',
-                            'Журнал_замечаний']
-        for otchet in spis_vid_otcheta:
-            self.ui.cmb_vid_otcheta.addItem(otchet)
 
+        self.setWindowTitle('Просмотр')
+
+        self.dict_vid_otcheta = {'':"",
+                                 'Усредненная удельная трудоемкость сборки по видам': "Для совещания",
+                                 'Внеплановые работы по направлениям': "Для совещания",
+                                 'План-фактный график по месяцам': "Для совещания",
+                                 'График удельной производительности сборочного цеха':"Для совещания",
+                                 'Трудозатраты':"Сверка для выгрузки трудоазтар в ЕРП",
+                            'О выработке сотрудников за месяц':"Отчет для ФЭО",
+                            'Текущие работы':"",
+                            'Выработка цеха по виду':"",
+                            'Выработка цеха по направлению':"",
+                            'Журнал работ':"",
+                            'Внеплановые работы':"",
+                            'Выработка сотрудника':"",
+                            'Выработка сотрудников':"",
+                            'Понедельный график выработки и отгрузок':"",
+                            'Выработка цеха понарядно':"",
+                            'Статистика нормо-весовых харктеристик МК':"",
+                            'План-фактный анализ по месяцам':"",
+                            'План работ':"",
+                            'Селекторное':"",
+                            'Неосвоенный_вес_по_созданным_нарядам':"",
+                            'Норматив материалов по завершенным нарядам':"",
+                            'Сравнение норм времени по направлениям':"",
+                            'Журнал_техкарт':"",
+                            'Журнал_замечаний':""}
+
+        for i, otchet in enumerate(self.dict_vid_otcheta.keys()):
+            self.ui.cmb_vid_otcheta.addItem(otchet)
+            self.ui.cmb_vid_otcheta.setItemData(i, self.dict_vid_otcheta[otchet], QtCore.Qt.ToolTipRole)
 
         spis_napravl = list(self.DICT_NAPRAVL.keys())
         for napravl in spis_napravl:
@@ -148,7 +183,6 @@ class mywindow(QtWidgets.QMainWindow):
         #============DB
         #====ВРЕМЕННО
 
-
     def up_down(self):
         fr =self.ui.fr_cal
         btn = self.ui.btn_udown
@@ -158,7 +192,6 @@ class mywindow(QtWidgets.QMainWindow):
         else:
             btn.setText(r'\/')
             fr.setHidden(True)
-
 
     def save_txt(self):
         def check_save_txt_trdzt(self):
@@ -173,15 +206,27 @@ class mywindow(QtWidgets.QMainWindow):
                     f'{count_err} значений выходят за диапазон от {self.PROC_OTKL_TRUDOZATRAT[0]} до {self.PROC_OTKL_TRUDOZATRAT[1]}, необходимо править наряды/табель')
                 return False
             return True
+        def check_path_save(self):
+            path = self.ui.le_path_save.text()
+            if F.nalich_file(path):
+                CMS.save_tmp_path('tdz_dir', path, True)
+                return True
+            CQT.msgbox('Выбранный путь недоступен')
+            return False
 
         if self.vid_otcheta == 'Трудозатраты':
+            if not check_path_save(self):
+                return
             if not check_save_txt_trdzt(self):
                 return
             rab_centr = self.ui.cmb_podrazdelenie.currentText().split('|')[0]
             list = CQT.spisok_iz_wtabl(self.ui.tbl_otchet, sep='', shapka=True, rez_dict=True)
             list_users = [_['ФИО'] for _ in list]
-            CMS.vigruzka_trudozatrat_2(self,self.ui.le_nach_per.text(),self.ui.le_konec_per.text(),list_users,rab_centr,'','')
-
+            CMS.vigruzka_trudozatrat_2(self, self.ui.le_nach_per.text(), self.ui.le_konec_per.text(), list_users,
+                                       rab_centr, '', '')
+            date_name_per = F.datetostr(F.strtodate(self.ui.le_nach_per.text()),"d_%Y_%m_%d")
+            name_book = F.datetostr(F.strtodate(self.ui.le_nach_per.text()),'jurnaltdz_%Y_%m_01')
+            CSQ.zapros(self.bd_users, f"""UPDATE {name_book} SET {date_name_per} = 1 WHERE РЦ == "{rab_centr}" """)
 
     def generate_list_plan(self,rez_list):
         plan = []
@@ -191,16 +236,14 @@ class mywindow(QtWidgets.QMainWindow):
             plan.append([])
             if plan == [[]]:
                 for key in deistvie.keys():
-                    for key2 in deistvie[key].keys():
-                        plan[0].append(key2)
+                    plan[0].append(key)
                 plan.append([])
                 len_shapka = len(plan[0])
             for key in deistvie.keys():
-                for key2 in deistvie[key].keys():
-                    plan[-1].append(str(deistvie[key][key2]))
-                if len(plan[-1]) < len_shapka:
-                    for i in range(len_shapka - len(plan[-1])):
-                        plan[0].append('')
+                plan[-1].append(str(deistvie[key]))
+            if len(plan[-1]) < len_shapka:
+                for i in range(len_shapka - len(plan[-1])):
+                    plan[0].append('')
         return plan
 
     def save_excell_plan(self,rez_list, path, name):
@@ -226,7 +269,7 @@ class mywindow(QtWidgets.QMainWindow):
                 if self.ui.cmb_vid_otcheta.currentText() == 'Журнал работ':
                     CMS.primenit_summ(self,self.ui.tbl_otchet)
                 if self.ui.cmb_vid_otcheta.currentText() == 'Выработка цеха понарядно':
-                    CMS.primenit_summ(self,self.ui.tbl_otchet)
+                    CMS.primenit_summ(self,self.ui.tbl_otchet,sredn=True)
                 if self.ui.cmb_vid_otcheta.currentText() == 'Выработка сотрудника':
                     CMS.primenit_summ(self, self.ui.tbl_otchet)
                 if self.ui.cmb_vid_otcheta.currentText() == 'Понедельный график выработки и отгрузок':
@@ -240,6 +283,8 @@ class mywindow(QtWidgets.QMainWindow):
                 if self.ui.cmb_vid_otcheta.currentText() == 'Журнал_техкарт':
                     CMS.primenit_summ(self, self.ui.tbl_otchet, sredn=True)
                 if self.ui.cmb_vid_otcheta.currentText() == 'Журнал_замечаний':
+                    CMS.primenit_summ(self, self.ui.tbl_otchet, sredn=True)
+                if self.ui.cmb_vid_otcheta.currentText() == 'График удельной производительности сборочного цеха':
                     CMS.primenit_summ(self, self.ui.tbl_otchet, sredn=True)
                 self.ui.tbl_otchet.isRowHidden(1)
         if self.ui.tbl_mk_filtr.hasFocus():
@@ -608,7 +653,7 @@ class mywindow(QtWidgets.QMainWindow):
             CEX.zap_spis(spis, dir_folder, imaf, '1', 1, 1, True, True, 'g')
             F.otkr_papky(dir_folder)
 
-app = QtWidgets.QApplication(sys.argv)
+app = QtWidgets.QApplication(['', '--no-sandbox'])
 
 args = sys.argv[1:]
 myappid = 'Powerz.BAG.SystCreateWork.1.0.4'  # !!!
